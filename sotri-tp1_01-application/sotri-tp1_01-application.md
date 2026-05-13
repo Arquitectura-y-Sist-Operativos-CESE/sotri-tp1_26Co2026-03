@@ -1,60 +1,92 @@
-¡Hola! Con gusto analizaré el código de tu proyecto. Antes de empezar, es importante hacer una pequeña aclaración: mencionas archivos de la familia STM32F103 (startup_stm32f103rbtx.s y stm32f1xx_it.c), pero los archivos proporcionados corresponden a la familia STM32F4 (específicamente startup_stm32f446retx.s y stm32f4xx_it.c). Basaré mi análisis estrictamente en el código real que has adjuntado.
+# Análisis de Funcionamiento: Proyecto STM32 con FreeRTOS
 
-Aquí tienes el desglose y la explicación de su funcionamiento.
+Este documento detalla el análisis del código fuente para un microcontrolador de la familia STM32F4 (basado en los archivos suministrados), explicando el flujo de ejecución, la evolución de variables críticas y la interacción entre temporizadores y el sistema operativo.
 
-1. Análisis del código fuente por archivo
-startup_stm32f446retx.s: Es el código en ensamblador que se ejecuta inmediatamente después de energizar o reiniciar el microcontrolador. Inicializa el puntero de pila (Stack Pointer), copia los valores iniciales de las variables de la memoria Flash a la memoria RAM (sección .data), inicializa a cero las variables no inicializadas (sección .bss), llama a funciones de inicialización del sistema y finalmente invoca a la función main().
+## 1. Análisis de los Archivos del Proyecto
 
-main.c: Contiene el punto de entrada principal en C. Aquí se inicializa la HAL (Hardware Abstraction Layer), se configura el reloj del sistema, se inicializan los periféricos (GPIO, UART2, TIM2) y se crea la tarea principal del sistema operativo (defaultTask). Finalmente, arranca el planificador de FreeRTOS (osKernelStart()).
+### 📂 startup_stm32f446retx.s
+Es el archivo de ensamblador que contiene el **Vector de Interrupciones** y el código de inicio del procesador.
+* **Puntero de Pila (SP):** Inicializa el stack en la dirección más alta de la RAM.
+* **Reset_Handler:** Es la primera función ejecutada tras un reset. Realiza la copia de la sección `.data` de Flash a RAM y limpia la sección `.bss` (pone a cero variables no inicializadas).
+* **Saltos Iniciales:** Llama a `SystemInit` para la configuración básica del reloj y luego salta a `__libc_init_array` antes de entrar finalmente a la función `main()`.
 
-stm32f4xx_it.c: Contiene las Rutinas de Servicio de Interrupción (ISR). Atiende los fallos del procesador (como HardFault_Handler) y las interrupciones de hardware específicas, delegando el manejo de los temporizadores TIM1 y TIM2 a las funciones de procesamiento de la HAL (HAL_TIM_IRQHandler).
+### 📂 main.c
+Es el punto de entrada de la aplicación en C. Sus funciones principales son:
+* **Inicialización de HAL:** Llama a `HAL_Init()` para resetear periféricos y configurar el Tick de la HAL.
+* **Configuración de Reloj:** `SystemClock_Config()` ajusta el PLL y los buses para que el MCU funcione a su máxima frecuencia.
+* **Inicialización de Periféricos:** Configura GPIO, UART2 para depuración y el **TIM2** para estadísticas de FreeRTOS.
+* **Lanzamiento del Kernel:** Define las tareas (como `defaultTask`) y arranca el planificador con `osKernelStart()`.
 
-FreeRTOSConfig.h: Es el archivo de configuración de FreeRTOS. Define los parámetros fundamentales del sistema operativo, como la frecuencia del CPU, la tasa de ticks del sistema (1000 Hz o 1 ms), el uso de asignación dinámica/estática de memoria, y mapea las interrupciones clave del procesador Cortex-M (SysTick, SVC, PendSV) al núcleo de FreeRTOS.
+### 📂 stm32f4xx_it.c
+Contiene los manejadores de interrupciones (ISR).
+* Maneja excepciones del sistema como `HardFault_Handler`.
+* Contiene los manejadores para **TIM1** (usado por la HAL) y **TIM2** (usado por FreeRTOS), derivando la ejecución a la biblioteca HAL mediante `HAL_TIM_IRQHandler`.
 
-freertos.c: Es donde se implementan los "hooks" (funciones de retorno o callbacks) de FreeRTOS, como las acciones a tomar en la tarea de inactividad (vApplicationIdleHook) o en caso de desbordamiento de pila. También maneja la memoria estática requerida por la tarea "Idle".
+### 📂 FreeRTOSConfig.h
+Archivo de configuración del núcleo de FreeRTOS.
+* Define `configCPU_CLOCK_HZ` (frecuencia del CPU) y `configTICK_RATE_HZ` (frecuencia del tick del sistema, usualmente 1000Hz o 1ms).
+* Mapea los manejadores de interrupciones nativos de ARM (`SVC_Handler`, `PendSV_Handler`, `SysTick_Handler`) a las funciones internas del kernel de FreeRTOS.
 
-2. Evolución de SysTick y SystemCoreClock
-SystemCoreClock:
+### 📂 freertos.c
+Implementa la lógica específica del sistema operativo.
+* Define las funciones de "Hook" (retrollamadas), como `vApplicationIdleHook` (ejecutada cuando no hay tareas activas) y la gestión de memoria estática para la tarea *Idle*.
 
-Antes de llegar a main(), la función SystemInit (invocada desde startup_stm32f446retx.s) preconfigura el reloj y establece el valor inicial de esta variable global.
+---
 
-Una vez dentro de main(), la función SystemClock_Config() reconfigura el reloj base usando el oscilador HSI y un PLL para alcanzar la frecuencia de trabajo deseada del sistema. Tras esto, la variable actualizará su valor a la frecuencia final de operación en Hz y se mantendrá estática.
+## 2. Evolución de Variables Críticas
 
-SysTick:
+A continuación se describe cómo cambian las variables desde el `Reset_Handler` hasta llegar al punto previo al loop principal.
 
-Al inicio (HAL_Init() en main()), SysTick suele configurarse temporalmente para proveer la base de tiempo de la inicialización.
+| Momento de Ejecución | `SystemCoreClock` | `SysTick` (Configuración/Registro) |
+| :--- | :--- | :--- |
+| **Reset_Handler** | Valor indeterminado (Basura en RAM). | Deshabilitado (0). |
+| **SystemInit** | Se establece al valor por defecto (ej. 16 MHz HSI). | Inicializado según la frecuencia base. |
+| **HAL_Init (en main)** | Se mantiene el valor inicial. | Se configura para generar una interrupción cada 1ms para la HAL. |
+| **SystemClock_Config** | **Cambia** al valor final configurado (ej. 180 MHz). | Se re-ajusta para mantener el tick de 1ms con la nueva frecuencia. |
+| **osKernelStart** | Se mantiene constante. | **FreeRTOS toma el control**: El registro de SysTick se configura para disparar la conmutación de tareas. |
 
-Sin embargo, su verdadera configuración ocurre cuando se ejecuta osKernelStart() en main.c. En ese momento, FreeRTOS toma control del hardware del SysTick para generar una interrupción periódica (cada 1 ms, dictado por configTICK_RATE_HZ) que regirá el cambio de contexto entre tareas.
+---
 
-3. Comportamiento del programa (Desde Reset_Handler hasta while(1))
-El flujo exacto y cronológico de ejecución es el siguiente:
+## 3. Comportamiento del Programa (Startup hasta Loop Principal)
 
-Reinicio: El procesador arranca y el Program Counter (PC) apunta a Reset_Handler.
+El flujo cronológico es el siguiente:
 
-Inicialización de Memoria: Se carga el Puntero de Pila (sp), se copian los datos inicializados de Flash a RAM (_sdata a _edata) y se rellenan con ceros las variables no inicializadas (_sbss a _ebss).
+1.  **Hardware Reset:** El PC (Program Counter) carga la dirección de `Reset_Handler`.
+2.  **Preparación de RAM:** Se copian las variables globales y estáticas de la Flash a la memoria volátil.
+3.  **Configuración de Sistema:** `SystemInit` prepara el bus de memoria.
+4.  **Entrada a Main:**
+    * Se inicializa la capa HAL.
+    * Se configura el reloj del sistema mediante PLL.
+    * Se configuran los periféricos (UART2, GPIO).
+    * Se inicializa el Timer 2 (`MX_TIM2_Init`) y se activa su interrupción (`HAL_TIM_Base_Start_IT`).
+    * Se llama a `app_init()` (lógica de aplicación del usuario).
+5.  **Creación de Tareas:** Se reserva memoria (TCB y Stack) para la tarea `defaultTask`.
+6.  **Arranque del Scheduler:** Se ejecuta `osKernelStart()`.
 
-Llamada a SystemInit y libc: Se llama a librerías de C y luego se ejecuta un salto a main().
+**Nota Crítica:** El programa **nunca llega al `while(1)` de `main.c`**. Al llamar a `osKernelStart()`, el control del CPU pasa íntegramente al planificador de FreeRTOS. El `while(1)` al final de `main.c` es solo una medida de seguridad en caso de que el kernel falle al iniciar.
 
-Configuración de Hardware (main.c): Se invoca HAL_Init() para resetear periféricos. Luego, SystemClock_Config() configura los relojes de los buses y CPU. Después, se inicializan los pines GPIO, la UART2 y el TIM2.
+---
 
-Arranque del hardware auxiliar: Se inicia el conteo del TIM2 con interrupciones habilitadas (HAL_TIM_Base_Start_IT(&htim2)) y se llama a una función externa app_init().
+## 4. Interacción de SysTick y Timers con FreeRTOS
 
-Creación de Tareas: Se define y crea el hilo defaultTask que quedará encolado en espera de ejecución.
+### SysTick
+* **Cómo:** Está mapeado mediante la macro `xPortSysTickHandler` en `FreeRTOSConfig.h`.
+* **Para qué:** Es el latido del sistema operativo. Genera la interrupción de "Tick" (cada 1ms). En cada tick, FreeRTOS decide si debe realizar un cambio de contexto (cambiar de una tarea a otra) y actualiza los contadores de tiempo de bloqueos (`osDelay`).
 
-Arranque de FreeRTOS: Se llama a osKernelStart().
+### Timer 1 (TIM1)
+* **Interacción:** En este proyecto, el **TIM1** es utilizado por la HAL de STM32 en lugar del SysTick.
+* **Para qué:** Debido a que FreeRTOS "secuestra" el SysTick para su funcionamiento interno, la HAL necesita otro temporizador para funciones como `HAL_Delay()`. El TIM1 incrementa la variable `uwTick` de la HAL independientemente de las tareas del RTOS.
 
-Dato fundamental: El programa nunca llegará a ejecutar el bucle while (1) ubicado al final de main.c. La función osKernelStart() arranca el planificador (scheduler) de FreeRTOS, el cual secuestra el control del procesador. A partir de este punto, el CPU solo ejecuta las tareas creadas (como StartDefaultTask) y las interrupciones del hardware.
+---
 
-4. Interacción de SysTick y Timer 1 (TIM1) con FreeRTOS
-En arquitecturas STM32 que emplean FreeRTOS, existe un conflicto inherente: tanto la HAL de STM32 como FreeRTOS necesitan una base de tiempo estricta.
+## 5. Interacción del Timer 2 (TIM2) con la HAL y FreeRTOS
 
-Para qué usa FreeRTOS el SysTick: FreeRTOS se adueña del temporizador del núcleo (SysTick) mapeándolo directamente en FreeRTOSConfig.h mediante #define xPortSysTickHandler SysTick_Handler. Esto le permite disparar interrupciones periódicas para gestionar los "tiempos muertos" (osDelay), gestionar la expiración de semáforos, y decidir qué tarea debe ejecutarse a continuación.
+El Timer 2 tiene un rol especial relacionado con el análisis de rendimiento:
 
-El rol del Timer 1 (TIM1): Dado que FreeRTOS "monopolizó" el SysTick, la capa de abstracción de hardware (HAL) se queda sin reloj. Para solucionarlo, el proyecto configura el TIM1 como reemplazo. Cuando el TIM1 desborda, llama a HAL_TIM_PeriodElapsedCallback, el cual ejecuta HAL_IncTick() incrementando la variable base de la HAL (uwTick), usada para los timeouts de los periféricos.
-
-5. Interacción del Timer 2 (TIM2) con la HAL y FreeRTOS
-El Timer 2 está configurado para un propósito muy específico: estadísticas en tiempo de ejecución (Run-Time Stats).
-
-Interacción con la HAL: El TIM2 es inicializado y arrancado mediante funciones puras de la HAL en main.c (MX_TIM2_Init y HAL_TIM_Base_Start_IT). Cuando desborda, la interrupción en hardware dispara TIM2_IRQHandler, quien llama a la HAL, resultando en la invocación de HAL_TIM_PeriodElapsedCallback donde se incrementa la variable ulHighFrequencyTimerTicks.
-
-Interacción con FreeRTOS: FreeRTOS tiene activada la macro configGENERATE_RUN_TIME_STATS. Esto requiere un reloj de alta frecuencia (unas 10 a 100 veces más rápido que el SysTick regular) para perfilar con alta resolución cuánto tiempo exacto de CPU consume cada tarea. FreeRTOS lee periódicamente el valor incrementado por la HAL llamando a la función getRunTimeCounterValue() (que retorna ulHighFrequencyTimerTicks).
+1.  **Interacción con la HAL:**
+    * Se configura en `main.c` para generar interrupciones a una frecuencia muy alta.
+    * Cada vez que desborda, se ejecuta `HAL_TIM_PeriodElapsedCallback`, el cual incrementa la variable global `ulHighFrequencyTimerTicks`.
+2.  **Interacción con FreeRTOS:**
+    * En `FreeRTOSConfig.h`, se habilitan las estadísticas de tiempo de ejecución (`configGENERATE_RUN_TIME_STATS`).
+    * FreeRTOS utiliza las macros `portCONFIGURE_TIMER_FOR_RUN_TIME_STATS()` (para iniciar el TIM2) y `portGET_RUN_TIME_COUNTER_VALUE()` (para leer `ulHighFrequencyTimerTicks`).
+    * **Para qué:** Permite al desarrollador saber exactamente qué porcentaje de CPU está consumiendo cada tarea, proporcionando una base de tiempo mucho más precisa que el simple tick de 1ms.
