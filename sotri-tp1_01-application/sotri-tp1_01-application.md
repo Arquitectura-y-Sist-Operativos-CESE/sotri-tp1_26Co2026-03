@@ -90,3 +90,47 @@ El Timer 2 tiene un rol especial relacionado con el análisis de rendimiento:
     * En `FreeRTOSConfig.h`, se habilitan las estadísticas de tiempo de ejecución (`configGENERATE_RUN_TIME_STATS`).
     * FreeRTOS utiliza las macros `portCONFIGURE_TIMER_FOR_RUN_TIME_STATS()` (para iniciar el TIM2) y `portGET_RUN_TIME_COUNTER_VALUE()` (para leer `ulHighFrequencyTimerTicks`).
     * **Para qué:** Permite al desarrollador saber exactamente qué porcentaje de CPU está consumiendo cada tarea, proporcionando una base de tiempo mucho más precisa que el simple tick de 1ms.
+
+
+
+    
+# Análisis de la Aplicación (Event-Triggered System con FreeRTOS) - PASO 8
+
+El código fuente adjunto conforma una aplicación basada en un sistema operativo en tiempo real (FreeRTOS) estructurada mediante **máquinas de estados (Statecharts)**. El paradigma del programa es un sistema disparado por eventos (Event-Triggered System), donde la pulsación de un botón altera el estado de un LED.
+
+A continuación, se detalla el funcionamiento de cada archivo:
+
+## 1. `app.c`: Inicialización de la Aplicación
+Este archivo es el punto de arranque de la lógica de usuario del sistema operativo.
+* **Inicialización (`app_init`)**: Se inicializan a cero los contadores globales del sistema (`g_app_tick_cnt`, `g_task_idle_cnt`, `g_app_stack_overflow_cnt`).
+* **Creación de Tareas (Threads)**: Se instancian dos hilos de ejecución concurrentes utilizando la API `xTaskCreate` de FreeRTOS:
+    1.  `task_btn`: Tarea encargada de leer el botón.
+    2.  `task_led`: Tarea encargada de controlar el LED.
+* **Prioridades**: Ambas tareas son creadas con la misma prioridad (`tskIDLE_PRIORITY + 1ul`, que equivale a prioridad 1) y el mismo tamaño de pila (stack) reservado.
+* Al finalizar, se verifica la cantidad de memoria Heap restante y se inicializa el contador de ciclos del procesador.
+
+## 2. `task_btn.c`: Lógica y Anti-rebote del Botón
+Contiene un bucle infinito que implementa la tarea de escaneo del botón de usuario de la placa. Su núcleo es la máquina de estados `task_btn_statechart()`.
+* **Lectura Cíclica**: En cada iteración, se lee el estado físico del pin del botón mediante la HAL (`HAL_GPIO_ReadPin`).
+* **Máquina de Estados y Debounce (Anti-rebote)**: Posee cuatro estados principales para implementar de forma robusta el filtro anti-rebotes:
+    * `ST_BTN_UP`: Estado de reposo. Si detecta presión, pasa a evaluar la caída.
+    * `ST_BTN_FALLING`: Espera un tiempo `DEL_BTN_MAX` (50 ms, usando `xTaskGetTickCount()`). Si luego de ese tiempo el botón sigue presionado, se confirma el evento y se envía el comando `EV_LED_BLINK` a la tarea del LED.
+    * `ST_BTN_DOWN`: El botón está presionado y validado. Espera a que se suelte para evaluar la subida.
+    * `ST_BTN_RISING`: Realiza la misma validación de tiempo (50 ms) para evitar falsos rebotes al soltar el botón. Si es validado, envía el comando `EV_LED_OFF`.
+
+## 3. `task_led_interface.c`: Interfaz de Comunicación
+Actúa como una API o "puente" para desacoplar el módulo del LED del módulo del botón.
+* **Función `put_event_task_led(event)`**: Recibe el evento disparado por el botón (parpadear o apagar) y escribe directamente sobre la estructura de datos privada del LED (`task_led_dta`). Levanta una bandera (`flag = true`) indicando que un nuevo evento está pendiente de ser procesado. *(Nota técnica: en un entorno estrictamente RTOS, esta comunicación por variables globales suele reemplazarse por Queues o Task Notifications para evitar problemas de concurrencia, aunque aquí se asume exclusión mutua por diseño).*
+
+## 4. `task_led.c`: Control y Secuencia del LED
+Implementa la tarea encargada de reaccionar a los eventos del botón y manejar el encendido, apagado o parpadeo del LED. Consta de la máquina de estados `task_led_statechart()`.
+* **Recepción de Eventos**: Evalúa si la interfaz ha levantado la bandera de evento (`task_led_dta.flag == true`).
+* **Estados**:
+    * `ST_LED_OFF`: Si recibe el evento `EV_LED_BLINK`, baja la bandera de lectura, guarda la marca de tiempo (Tick actual), enciende el LED mediante la HAL de STM32 y pasa al estado de parpadeo.
+    * `ST_LED_BLINK`: Si recibe el evento `EV_LED_OFF`, apaga el LED y vuelve al estado `OFF`. Si no recibe ninguna orden de apagado, utiliza retardos no bloqueantes analizando la resta entre el tiempo actual y el guardado; si superan `DEL_LED_MAX` (500 ms), invierte el estado del pin del LED (`HAL_GPIO_TogglePin`), generando así un parpadeo periódico.
+
+## 5. `freertos.c`: Hooks (Callbacks) del Sistema Operativo
+Contiene funciones de retrollamada (hooks) que el kernel de FreeRTOS invoca automáticamente ante ciertos eventos internos.
+* **`vApplicationIdleHook`**: Se ejecuta exclusivamente cuando no hay tareas de usuario listas para procesar (es decir, el CPU está libre). El código incrementa la variable `g_task_idle_cnt`. Esto es muy valioso para poder medir, a posteriori, el porcentaje de carga y uso de CPU del microcontrolador.
+* **`vApplicationTickHook`**: Se dispara con cada interrupción del "Tick" del RTOS (usualmente cada 1 milisegundo). Incrementa `g_app_tick_cnt`. Esta función debe ser extremadamente rápida ya que interrumpe el flujo normal del procesador.
+* **`vApplicationStackOverflowHook`**: Una función crítica de depuración. Si FreeRTOS detecta que alguna de las tareas creadas (como `Task BTN` o `Task LED`) se ha quedado sin memoria en su pila asignada, salta aquí. El código utiliza `configASSERT( 0 )` y `taskENTER_CRITICAL()` para "congelar" y atrapar al procesador, permitiendo al programador inspeccionar el fallo en un entorno de depuración (debugger) y se suma al contador `g_app_stack_overflow_cnt`.
