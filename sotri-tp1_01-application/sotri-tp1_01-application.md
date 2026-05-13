@@ -134,3 +134,29 @@ Contiene funciones de retrollamada (hooks) que el kernel de FreeRTOS invoca auto
 * **`vApplicationIdleHook`**: Se ejecuta exclusivamente cuando no hay tareas de usuario listas para procesar (es decir, el CPU está libre). El código incrementa la variable `g_task_idle_cnt`. Esto es muy valioso para poder medir, a posteriori, el porcentaje de carga y uso de CPU del microcontrolador.
 * **`vApplicationTickHook`**: Se dispara con cada interrupción del "Tick" del RTOS (usualmente cada 1 milisegundo). Incrementa `g_app_tick_cnt`. Esta función debe ser extremadamente rápida ya que interrumpe el flujo normal del procesador.
 * **`vApplicationStackOverflowHook`**: Una función crítica de depuración. Si FreeRTOS detecta que alguna de las tareas creadas (como `Task BTN` o `Task LED`) se ha quedado sin memoria en su pila asignada, salta aquí. El código utiliza `configASSERT( 0 )` y `taskENTER_CRITICAL()` para "congelar" y atrapar al procesador, permitiendo al programador inspeccionar el fallo en un entorno de depuración (debugger) y se suma al contador `g_app_stack_overflow_cnt`.
+
+
+#TP1 – Actividad 02 – 5to Proyecto p/placa NUCLEO-F103RB con FreeRTOS
+
+##Paso 02
+
+1. ¿Cómo FreeRTOS asigna tiempo de procesamiento a cada Tarea en una aplicación?
+FreeRTOS utiliza un planificador (scheduler) preemptivo que se basa en interrupciones de hardware periódicas llamadas "Ticks" (usualmente cada 1 ms). Mediante un algoritmo de "Round-Robin" (Time Slicing), el planificador aprovecha cada Tick para pausar la tarea actual y asignarle una "rebanada de tiempo" equitativa a la siguiente tarea que tenga su misma prioridad.
+
+2. ¿Cómo FreeRTOS elige qué Tarea debe ejecutarse en un momento dado?
+El planificador sigue una regla estricta e inquebrantable: el procesador siempre ejecutará la tarea que tenga la prioridad más alta de entre todas las que se encuentren listas para correr en ese instante preciso.
+
+3. ¿Cómo la prioridad relativa de cada Tarea afecta el comportamiento del sistema?
+La prioridad define la jerarquía absoluta de ejecución (siendo 0 la más baja). Si una tarea de alta prioridad despierta, interrumpe inmediatamente (preempción) a cualquier tarea de menor prioridad; esto implica que si las tareas de alta prioridad no ceden el control bloqueándose intencionalmente, las de menor prioridad sufrirán "inanición" y nunca se ejecutarán.
+
+4. ¿Cuáles son los estados en los que puede encontrarse una Tarea?
+Una tarea solo puede estar en uno de cuatro estados: Running (usando activamente el CPU), Ready (lista para ejecutarse pero esperando que tareas de mayor prioridad liberen el CPU), Blocked (suspendida temporalmente esperando un evento, dato o retardo) o Suspended (ignorada totalmente por el planificador hasta que se la reanude manualmente).
+
+5. ¿Cómo implementar Tareas?
+Una tarea se implementa como una función estándar de C (void vMiTarea(void *pvParameters)) que nunca debe retornar. Su estructura típica incluye una pequeña fase de inicialización seguida de un bucle infinito (for(;;)) que contiene la lógica operativa y funciones bloqueantes (como vTaskDelay()) para ceder el procesador.
+
+6. ¿Cómo crear una o más instancias de una Tarea?
+Para que el sistema operativo registre una tarea, se debe invocar a la API xTaskCreate(), proporcionándole la función a ejecutar, la memoria para la pila, la prioridad y un puntero de control (Handle). Puedes crear múltiples instancias concurrentes utilizando la misma función base, simplemente llamando a xTaskCreate() varias veces con diferentes argumentos en su parámetro pvParameters.
+
+7. ¿Cómo eliminar una Tarea?
+Cuando una tarea ya no es útil, se debe llamar a vTaskDelete() para que FreeRTOS libere los recursos de memoria que ocupaba. Puedes eliminar otra tarea pasándole su Handle específico, o una tarea puede "suicidarse" llamando a vTaskDelete(NULL) (lo cual es obligatorio hacer en lugar de usar un return si se desea salir del bucle).
