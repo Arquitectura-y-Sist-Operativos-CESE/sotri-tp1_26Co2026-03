@@ -85,6 +85,8 @@ void task_btn(void *parameters)
 
 		/* Run Task Statechart */
     	task_btn_statechart();
+
+    	vTaskDelay(100);
 	}
 }
 

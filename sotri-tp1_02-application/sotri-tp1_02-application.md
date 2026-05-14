@@ -28,6 +28,7 @@ Cuando una tarea ya no es útil, se debe llamar a vTaskDelete() para que FreeRTO
 
 De app.c modificamos las prioridades
 
+
     /* Task BTN thread at priority 1 */
     ret = xTaskCreate(task_btn,							/* Pointer to the function thats implement the task. */
 					  "Task BTN",						/* Text name for the task. This is to facilitate debugging only. */
@@ -48,3 +49,90 @@ De app.c modificamos las prioridades
 					  &h_task_led);						/* We are using a variable as task handle. */
 
     /* Check the thread was created successfully. */
+
+    Si cambiamos las prioridades, el que tenga la prioridad más alta se adueña del microcontrolador y no deja ejecutar la otra tarea.
+
+
+## Paso 04
+
+
+
+ /* Task BTN thread at priority 1 */
+    ret = xTaskCreate(task_btn,							/* Pointer to the function thats implement the task. */
+					  "Task BTN 1",						/* Text name for the task. This is to facilitate debugging only. */
+					  (2 * configMINIMAL_STACK_SIZE),	/* Stack depth in words. */
+					  NULL,								/* We are not using the task parameter. */
+					  (tskIDLE_PRIORITY + 1ul),			/* This task will run at priority 1. */
+					  &h_task_btn_1);						/* We are using a variable as task handle. */
+
+    /* Check the thread was created successfully. */
+    configASSERT(pdPASS == ret);
+
+    /* Task BTN thread at priority 1 */
+    ret = xTaskCreate(task_btn,							/* Pointer to the function thats implement the task. */
+					  "Task BTN 2",						/* Text name for the task. This is to facilitate debugging only. */
+					  (2 * configMINIMAL_STACK_SIZE),	/* Stack depth in words. */
+					  NULL,								/* We are not using the task parameter. */
+					  (tskIDLE_PRIORITY + 2ul),			/* This task will run at priority 1. */
+					  &h_task_btn_2);						/* We are using a variable as task handle. */
+
+    /* Check the thread was created successfully. */
+    configASSERT(pdPASS == ret);
+
+    /* Task BTN thread at priority 1 */
+    ret = xTaskCreate(task_btn,							/* Pointer to the function thats implement the task. */
+					  "Task BTN 3",						/* Text name for the task. This is to facilitate debugging only. */
+					  (2 * configMINIMAL_STACK_SIZE),	/* Stack depth in words. */
+					  NULL,								/* We are not using the task parameter. */
+					  (tskIDLE_PRIORITY + 2ul),			/* This task will run at priority 1. */
+					  &h_task_btn_3);						/* We are using a variable as task handle. */
+
+    /* Check the thread was created successfully. */
+    configASSERT(pdPASS == ret);
+
+    /* Task LED thread at priority 1 */
+    ret = xTaskCreate(task_led,							/* Pointer to the function thats implement the task. */
+					  "Task LED",						/* Text name for the task. This is to facilitate debugging only. */
+					  (2 * configMINIMAL_STACK_SIZE),	/* Stack depth in words. */
+					  NULL,								/* We are not using the task parameter. */
+					  (tskIDLE_PRIORITY + 2ul),			/* This task will run at priority 1. */
+					  &h_task_led);						/* We are using a variable as task handle. */
+
+    /* Check the thread was created successfully. */
+    configASSERT(pdPASS == ret);
+
+
+    Consola
+
+    [info]  
+[info] app_init is running - Tick [mS] =   0
+[info]  RTOS - Event-Triggered Systems (ETS)
+[info]  soe-tp0_03-application: Demo Code
+[info]  
+[info] Task LED is running - Tick [mS] =   0
+[info]  
+[info] Task BTN 2 is running - Tick [mS] =   1
+[info]  Task BTN 2 - BTN PRESSED
+[info]  Task LED - LED BLINK
+[info]  Task BTN 2 - BTN HOVER
+[info]  Task LED - LED OFF
+[info]  Task BTN 2 - BTN PRESSED
+[info]  Task LED - LED BLINK
+[info]  Task BTN 2 - BTN HOVER
+[info]  Task LED - LED OFF
+[info]  Task BTN 2 - BTN PRESSED
+[info]  Task LED - LED BLINK
+[info]  Task BTN 2 - BTN HOVER
+[info]  Task LED - LED OFF
+
+
+### Observaciones de la Implementación (Paso 04)
+
+Durante la prueba de instanciación múltiple de tareas, se verificaron los siguientes comportamientos del RTOS:
+
+* **Gestión de Prioridades (Preempción):** Al ejecutar múltiples instancias de la tarea de botón (`task_btn`) con diferentes prioridades, el planificador otorgó el control absoluto de la CPU a la tarea con la prioridad más alta, desplazando a las demás.
+* **Igualdad de Prioridades:** Al asignar la misma jerarquía a todas las instancias de `task_btn`, se observó que la primera tarea en ser creada (instanciada en el código) fue la que retuvo el control inicial de la ejecución.
+* **Eliminación Dinámica de Tareas:** Se validó el correcto funcionamiento de la API de FreeRTOS para la destrucción de hilos. La tarea controladora del LED (`task_led`) logró recibir exitosamente el *Handle* y ejecutar `vTaskDelete()` para eliminar de forma definitiva la instancia número 3 del botón ("BTN 3").
+
+
+

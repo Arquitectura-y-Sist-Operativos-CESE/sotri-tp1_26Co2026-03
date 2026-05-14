@@ -70,9 +70,12 @@ uint32_t g_app_stack_overflow_cnt;
  * with other thread or to ensure mutual exclusive access to...*/
 
 /* Declare a variable of type TaskHandle_t. This is used to reference threads. */
-TaskHandle_t h_task_btn;
+//TaskHandle_t h_task_btn;
 TaskHandle_t h_task_led;
 
+volatile TaskHandle_t h_task_btn_1;
+volatile TaskHandle_t h_task_btn_2;
+volatile TaskHandle_t h_task_btn_3;
 /********************** external functions definition ************************/
 void app_init(void)
 {
@@ -100,11 +103,33 @@ void app_init(void)
 
     /* Task BTN thread at priority 1 */
     ret = xTaskCreate(task_btn,							/* Pointer to the function thats implement the task. */
-					  "Task BTN",						/* Text name for the task. This is to facilitate debugging only. */
+					  "Task BTN 1",						/* Text name for the task. This is to facilitate debugging only. */
 					  (2 * configMINIMAL_STACK_SIZE),	/* Stack depth in words. */
 					  NULL,								/* We are not using the task parameter. */
 					  (tskIDLE_PRIORITY + 1ul),			/* This task will run at priority 1. */
-					  &h_task_btn);						/* We are using a variable as task handle. */
+					  &h_task_btn_1);						/* We are using a variable as task handle. */
+
+    /* Check the thread was created successfully. */
+    configASSERT(pdPASS == ret);
+
+    /* Task BTN thread at priority 1 */
+    ret = xTaskCreate(task_btn,							/* Pointer to the function thats implement the task. */
+					  "Task BTN 2",						/* Text name for the task. This is to facilitate debugging only. */
+					  (2 * configMINIMAL_STACK_SIZE),	/* Stack depth in words. */
+					  NULL,								/* We are not using the task parameter. */
+					  (tskIDLE_PRIORITY + 1ul),			/* This task will run at priority 1. */
+					  &h_task_btn_2);						/* We are using a variable as task handle. */
+
+    /* Check the thread was created successfully. */
+    configASSERT(pdPASS == ret);
+
+    /* Task BTN thread at priority 1 */
+    ret = xTaskCreate(task_btn,							/* Pointer to the function thats implement the task. */
+					  "Task BTN 3",						/* Text name for the task. This is to facilitate debugging only. */
+					  (2 * configMINIMAL_STACK_SIZE),	/* Stack depth in words. */
+					  NULL,								/* We are not using the task parameter. */
+					  (tskIDLE_PRIORITY + 1ul),			/* This task will run at priority 1. */
+					  &h_task_btn_3);						/* We are using a variable as task handle. */
 
     /* Check the thread was created successfully. */
     configASSERT(pdPASS == ret);
