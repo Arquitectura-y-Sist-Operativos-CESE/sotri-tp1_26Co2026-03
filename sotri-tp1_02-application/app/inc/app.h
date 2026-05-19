@@ -60,6 +60,9 @@ extern uint32_t g_app_stack_overflow_cnt;
 /* Declare a variable of type TaskHandle_t. This is used to reference threads. */
 extern TaskHandle_t h_task_btn;
 extern TaskHandle_t h_task_led;
+extern TaskHandle_t h_task_btn_1;
+extern TaskHandle_t h_task_btn_2;
+extern TaskHandle_t h_task_btn_3;
 
 /********************** external functions declaration ***********************/
 extern void app_init(void);

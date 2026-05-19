@@ -47,6 +47,8 @@
 #include "task_btn.h"
 #include "task_led.h"
 
+
+
 /********************** macros and definitions *******************************/
 #define G_APP_TICK_CNT_INI				0ul
 #define G_TASK_IDLE_CNT_INI				0ul
@@ -72,10 +74,10 @@ uint32_t g_app_stack_overflow_cnt;
 /* Declare a variable of type TaskHandle_t. This is used to reference threads. */
 //TaskHandle_t h_task_btn;
 TaskHandle_t h_task_led;
+TaskHandle_t h_task_btn_1;
+TaskHandle_t h_task_btn_2;
+TaskHandle_t h_task_btn_3;
 
-volatile TaskHandle_t h_task_btn_1;
-volatile TaskHandle_t h_task_btn_2;
-volatile TaskHandle_t h_task_btn_3;
 /********************** external functions definition ************************/
 void app_init(void)
 {

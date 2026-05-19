@@ -63,7 +63,7 @@ void task_led_statechart(void);
 /********************** internal data definition *****************************/
 
 /********************** external data declaration ****************************/
-extern TaskHandle_t h_task_btn_3;
+
 /********************** external functions definition ************************/
 /* Task LED thread */
 void task_led(void *parameters)
