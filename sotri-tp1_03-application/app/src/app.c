@@ -80,6 +80,9 @@ TaskHandle_t h_task_btn_2;
 task_btn_parameters_t button1={B1_GPIO_Port, B1_Pin};
 task_btn_parameters_t button2={GPIOA, GPIO_PIN_8};
 
+task_led_parameters_t ld2={LD2_GPIO_Port,LD2_Pin};
+task_led_parameters_t ld3={led3_GPIO_Port,led3_Pin};
+
 
 /********************** external functions definition ************************/
 void app_init(void)
@@ -136,14 +139,26 @@ void app_init(void)
 
     /* Task LED thread at priority 1 */
     ret = xTaskCreate(task_led,							/* Pointer to the function thats implement the task. */
-					  "Task LED",						/* Text name for the task. This is to facilitate debugging only. */
+					  "Task LED LD2",						/* Text name for the task. This is to facilitate debugging only. */
 					  (2 * configMINIMAL_STACK_SIZE),	/* Stack depth in words. */
-					  NULL,								/* We are not using the task parameter. */
+					  (void*)&ld2,								/* We are not using the task parameter. */
 					  (tskIDLE_PRIORITY + 1ul),			/* This task will run at priority 1. */
 					  &h_task_led);						/* We are using a variable as task handle. */
 
     /* Check the thread was created successfully. */
     configASSERT(pdPASS == ret);
+
+    /* Task LED thread at priority 1 */
+	ret = xTaskCreate(task_led,							/* Pointer to the function thats implement the task. */
+					  "Task LED LD3",						/* Text name for the task. This is to facilitate debugging only. */
+					  (2 * configMINIMAL_STACK_SIZE),	/* Stack depth in words. */
+					  (void*)&ld3,								/* We are not using the task parameter. */
+					  (tskIDLE_PRIORITY + 1ul),			/* This task will run at priority 1. */
+					  &h_task_led);						/* We are using a variable as task handle. */
+
+	/* Check the thread was created successfully. */
+	configASSERT(pdPASS == ret);
+
 
     /* Total amount of heap space that remains unallocated. Is also available
      * with xFreeBytesRemaining variable for heap management schemes 2 to 5.

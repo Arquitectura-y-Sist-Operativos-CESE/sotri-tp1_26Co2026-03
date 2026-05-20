@@ -87,3 +87,38 @@ void vTareaSensor(void *pvParameters) {
 ```
 
 Nota importante: Si al usar vTaskPrioritySet() le asignas a una tarea una prioridad mayor que la de la tarea que se está ejecutando actualmente, se producirá un cambio de contexto inmediato (preempción) y la CPU saltará a ejecutar esa tarea sin esperar al siguiente Tick.
+
+## 3. 
+
+Se observa que la tarea instancienadose dos veces, puede manejar dos GPIO Input diferentes y enviar a la tarea del led los eventos configurados.
+
+Se adjunta la salida de la consola:
+```
+xPSR: 0x01000000 pc: 0x08000c94 msp: 0x20020000, semihosting
+[info]  
+[info] app_init is running - Tick [mS] =   0
+[info]  RTOS - Event-Triggered Systems (ETS)
+[info]  soe-tp0_03-application: Demo Code
+[info]  
+[info] Task LED is running - Tick [mS] =   0
+[info]  
+[info] Task BTN 1 is running - Tick [mS] =   1
+[info] Me llamaron Puerto 0x40020800 , Pin 8192
+[info]  
+[info] Task BTN 2 is running - Tick [mS] =   1
+[info] Me llamaron Puerto 0x40020000 , Pin 256
+[info]  Task BTN 1 - BTN PRESSED
+[info]  Task LED - LED BLINK
+[info]  Task BTN 1 - BTN HOVER
+[info]  Task LED - LED OFF
+[info]  Task BTN 2 - BTN PRESSED
+[info]  Task LED - LED BLINK
+[info]  Task BTN 2 - BTN HOVER
+[info]  Task LED - LED OFF
+[info]  Task BTN 2 - BTN PRESSED
+[info]  Task LED - LED BLINK
+[info]  Task BTN 2 - BTN HOVER
+[info]  Task LED - LED OFF
+```
+
+## 4. Modi

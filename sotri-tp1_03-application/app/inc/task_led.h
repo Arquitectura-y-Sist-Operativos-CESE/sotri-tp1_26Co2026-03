@@ -45,6 +45,11 @@ extern "C" {
 /********************** macros ***********************************************/
 
 /********************** typedef **********************************************/
+typedef struct
+{
+	GPIO_TypeDef *	gpio_port;
+	uint16_t		pin;
+} task_led_parameters_t;
 
 /********************** external data declaration ****************************/
 
