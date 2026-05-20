@@ -5,12 +5,14 @@ Este documento detalla el análisis del código fuente para un microcontrolador 
 ## 1. Análisis de los Archivos del Proyecto
 
 ### 📂 startup_stm32f446retx.s
+
 Es el archivo de ensamblador que contiene el **Vector de Interrupciones** y el código de inicio del procesador.
 * **Puntero de Pila (SP):** Inicializa el stack en la dirección más alta de la RAM.
 * **Reset_Handler:** Es la primera función ejecutada tras un reset. Realiza la copia de la sección `.data` de Flash a RAM y limpia la sección `.bss` (pone a cero variables no inicializadas).
 * **Saltos Iniciales:** Llama a `SystemInit` para la configuración básica del reloj y luego salta a `__libc_init_array` antes de entrar finalmente a la función `main()`.
 
 ### 📂 main.c
+
 Es el punto de entrada de la aplicación en C. Sus funciones principales son:
 * **Inicialización de HAL:** Llama a `HAL_Init()` para resetear periféricos y configurar el Tick de la HAL.
 * **Configuración de Reloj:** `SystemClock_Config()` ajusta el PLL y los buses para que el MCU funcione a su máxima frecuencia.
@@ -18,16 +20,19 @@ Es el punto de entrada de la aplicación en C. Sus funciones principales son:
 * **Lanzamiento del Kernel:** Define las tareas (como `defaultTask`) y arranca el planificador con `osKernelStart()`.
 
 ### 📂 stm32f4xx_it.c
+
 Contiene los manejadores de interrupciones (ISR).
 * Maneja excepciones del sistema como `HardFault_Handler`.
 * Contiene los manejadores para **TIM1** (usado por la HAL) y **TIM2** (usado por FreeRTOS), derivando la ejecución a la biblioteca HAL mediante `HAL_TIM_IRQHandler`.
 
 ### 📂 FreeRTOSConfig.h
+
 Archivo de configuración del núcleo de FreeRTOS.
 * Define `configCPU_CLOCK_HZ` (frecuencia del CPU) y `configTICK_RATE_HZ` (frecuencia del tick del sistema, usualmente 1000Hz o 1ms).
 * Mapea los manejadores de interrupciones nativos de ARM (`SVC_Handler`, `PendSV_Handler`, `SysTick_Handler`) a las funciones internas del kernel de FreeRTOS.
 
 ### 📂 freertos.c
+
 Implementa la lógica específica del sistema operativo.
 * Define las funciones de "Hook" (retrollamadas), como `vApplicationIdleHook` (ejecutada cuando no hay tareas activas) y la gestión de memoria estática para la tarea *Idle*.
 
@@ -70,10 +75,12 @@ El flujo cronológico es el siguiente:
 ## 4. Interacción de SysTick y Timers con FreeRTOS
 
 ### SysTick
+
 * **Cómo:** Está mapeado mediante la macro `xPortSysTickHandler` en `FreeRTOSConfig.h`.
 * **Para qué:** Es el latido del sistema operativo. Genera la interrupción de "Tick" (cada 1ms). En cada tick, FreeRTOS decide si debe realizar un cambio de contexto (cambiar de una tarea a otra) y actualiza los contadores de tiempo de bloqueos (`osDelay`).
 
 ### Timer 1 (TIM1)
+
 * **Interacción:** En este proyecto, el **TIM1** es utilizado por la HAL de STM32 en lugar del SysTick.
 * **Para qué:** Debido a que FreeRTOS "secuestra" el SysTick para su funcionamiento interno, la HAL necesita otro temporizador para funciones como `HAL_Delay()`. El TIM1 incrementa la variable `uwTick` de la HAL independientemente de las tareas del RTOS.
 
@@ -91,9 +98,6 @@ El Timer 2 tiene un rol especial relacionado con el análisis de rendimiento:
     * FreeRTOS utiliza las macros `portCONFIGURE_TIMER_FOR_RUN_TIME_STATS()` (para iniciar el TIM2) y `portGET_RUN_TIME_COUNTER_VALUE()` (para leer `ulHighFrequencyTimerTicks`).
     * **Para qué:** Permite al desarrollador saber exactamente qué porcentaje de CPU está consumiendo cada tarea, proporcionando una base de tiempo mucho más precisa que el simple tick de 1ms.
 
-
-
-    
 # Análisis de la Aplicación (Event-Triggered System con FreeRTOS) - PASO 8
 
 El código fuente adjunto conforma una aplicación basada en un sistema operativo en tiempo real (FreeRTOS) estructurada mediante **máquinas de estados (Statecharts)**. El paradigma del programa es un sistema disparado por eventos (Event-Triggered System), donde la pulsación de un botón altera el estado de un LED.
@@ -101,6 +105,7 @@ El código fuente adjunto conforma una aplicación basada en un sistema operativ
 A continuación, se detalla el funcionamiento de cada archivo:
 
 ## 1. `app.c`: Inicialización de la Aplicación
+
 Este archivo es el punto de arranque de la lógica de usuario del sistema operativo.
 * **Inicialización (`app_init`)**: Se inicializan a cero los contadores globales del sistema (`g_app_tick_cnt`, `g_task_idle_cnt`, `g_app_stack_overflow_cnt`).
 * **Creación de Tareas (Threads)**: Se instancian dos hilos de ejecución concurrentes utilizando la API `xTaskCreate` de FreeRTOS:
@@ -110,6 +115,7 @@ Este archivo es el punto de arranque de la lógica de usuario del sistema operat
 * Al finalizar, se verifica la cantidad de memoria Heap restante y se inicializa el contador de ciclos del procesador.
 
 ## 2. `task_btn.c`: Lógica y Anti-rebote del Botón
+
 Contiene un bucle infinito que implementa la tarea de escaneo del botón de usuario de la placa. Su núcleo es la máquina de estados `task_btn_statechart()`.
 * **Lectura Cíclica**: En cada iteración, se lee el estado físico del pin del botón mediante la HAL (`HAL_GPIO_ReadPin`).
 * **Máquina de Estados y Debounce (Anti-rebote)**: Posee cuatro estados principales para implementar de forma robusta el filtro anti-rebotes:
@@ -119,10 +125,12 @@ Contiene un bucle infinito que implementa la tarea de escaneo del botón de usua
     * `ST_BTN_RISING`: Realiza la misma validación de tiempo (50 ms) para evitar falsos rebotes al soltar el botón. Si es validado, envía el comando `EV_LED_OFF`.
 
 ## 3. `task_led_interface.c`: Interfaz de Comunicación
+
 Actúa como una API o "puente" para desacoplar el módulo del LED del módulo del botón.
 * **Función `put_event_task_led(event)`**: Recibe el evento disparado por el botón (parpadear o apagar) y escribe directamente sobre la estructura de datos privada del LED (`task_led_dta`). Levanta una bandera (`flag = true`) indicando que un nuevo evento está pendiente de ser procesado. *(Nota técnica: en un entorno estrictamente RTOS, esta comunicación por variables globales suele reemplazarse por Queues o Task Notifications para evitar problemas de concurrencia, aunque aquí se asume exclusión mutua por diseño).*
 
 ## 4. `task_led.c`: Control y Secuencia del LED
+
 Implementa la tarea encargada de reaccionar a los eventos del botón y manejar el encendido, apagado o parpadeo del LED. Consta de la máquina de estados `task_led_statechart()`.
 * **Recepción de Eventos**: Evalúa si la interfaz ha levantado la bandera de evento (`task_led_dta.flag == true`).
 * **Estados**:
@@ -130,8 +138,8 @@ Implementa la tarea encargada de reaccionar a los eventos del botón y manejar e
     * `ST_LED_BLINK`: Si recibe el evento `EV_LED_OFF`, apaga el LED y vuelve al estado `OFF`. Si no recibe ninguna orden de apagado, utiliza retardos no bloqueantes analizando la resta entre el tiempo actual y el guardado; si superan `DEL_LED_MAX` (500 ms), invierte el estado del pin del LED (`HAL_GPIO_TogglePin`), generando así un parpadeo periódico.
 
 ## 5. `freertos.c`: Hooks (Callbacks) del Sistema Operativo
+
 Contiene funciones de retrollamada (hooks) que el kernel de FreeRTOS invoca automáticamente ante ciertos eventos internos.
 * **`vApplicationIdleHook`**: Se ejecuta exclusivamente cuando no hay tareas de usuario listas para procesar (es decir, el CPU está libre). El código incrementa la variable `g_task_idle_cnt`. Esto es muy valioso para poder medir, a posteriori, el porcentaje de carga y uso de CPU del microcontrolador.
 * **`vApplicationTickHook`**: Se dispara con cada interrupción del "Tick" del RTOS (usualmente cada 1 milisegundo). Incrementa `g_app_tick_cnt`. Esta función debe ser extremadamente rápida ya que interrumpe el flujo normal del procesador.
 * **`vApplicationStackOverflowHook`**: Una función crítica de depuración. Si FreeRTOS detecta que alguna de las tareas creadas (como `Task BTN` o `Task LED`) se ha quedado sin memoria en su pila asignada, salta aquí. El código utiliza `configASSERT( 0 )` y `taskENTER_CRITICAL()` para "congelar" y atrapar al procesador, permitiendo al programador inspeccionar el fallo en un entorno de depuración (debugger) y se suma al contador `g_app_stack_overflow_cnt`.
-

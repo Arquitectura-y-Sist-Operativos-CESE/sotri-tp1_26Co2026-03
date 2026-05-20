@@ -1,7 +1,6 @@
-
 # TP1 – Actividad 02 – 5to Proyecto p/placa NUCLEO-F103RB con FreeRTOS
 
-## Paso 02
+## Paso 02 - Preguntas sobre planificación, prioridades, estados e instancias
 
 1. ¿Cómo FreeRTOS asigna tiempo de procesamiento a cada Tarea en una aplicación?
 FreeRTOS utiliza un planificador (scheduler) preemptivo que se basa en interrupciones de hardware periódicas llamadas "Ticks" (usualmente cada 1 ms). Mediante un algoritmo de "Round-Robin" (Time Slicing), el planificador aprovecha cada Tick para pausar la tarea actual y asignarle una "rebanada de tiempo" equitativa a la siguiente tarea que tenga su misma prioridad.
@@ -22,12 +21,11 @@ Una tarea se implementa como una función estándar de C (void vMiTarea(void *pv
 Para que el sistema operativo registre una tarea, se debe invocar a la API xTaskCreate(), proporcionándole la función a ejecutar, la memoria para la pila, la prioridad y un puntero de control (Handle). Puedes crear múltiples instancias concurrentes utilizando la misma función base, simplemente llamando a xTaskCreate() varias veces con diferentes argumentos en su parámetro pvParameters.
 
 7. ¿Cómo eliminar una Tarea?
-Cuando una tarea ya no es útil, se debe llamar a vTaskDelete() para que FreeRTOS libere los recursos de memoria que ocupaba. Puedes eliminar otra tarea pasándole su Handle específico, o una tarea puede "suicidarse" llamando a vTaskDelete(NULL) (lo cual es obligatorio hacer en lugar de usar un return si se desea salir del bucle).
+Cuándo una tarea ya no es útil, se debe llamar a vTaskDelete() para que FreeRTOS libere los recursos de memoria que ocupaba. Puedes eliminar otra tarea pasándole su Handle específico, o una tarea puede "suicidarse" llamando a vTaskDelete(NULL) (lo cual es obligatorio hacer en lugar de usar un return si se desea salir del bucle).
 
-## Paso 03
+## Paso 03 - Modificación de prioridades relativas de `task_btn` y `task_led`
 
 De app.c modificamos las prioridades
-
 
     /* Task BTN thread at priority 1 */
     ret = xTaskCreate(task_btn,							/* Pointer to the function thats implement the task. */
@@ -52,10 +50,7 @@ De app.c modificamos las prioridades
 
     Si cambiamos las prioridades, el que tenga la prioridad más alta se adueña del microcontrolador y no deja ejecutar la otra tarea.
 
-
-## Paso 04
-
-
+## Paso 04 - Tres instancias de `task_btn` y eliminación de una instancia
 
  /* Task BTN thread at priority 1 */
     ret = xTaskCreate(task_btn,							/* Pointer to the function thats implement the task. */
@@ -101,16 +96,15 @@ De app.c modificamos las prioridades
     /* Check the thread was created successfully. */
     configASSERT(pdPASS == ret);
 
-
     Consola
 
-    [info]  
+    [info]
 [info] app_init is running - Tick [mS] =   0
 [info]  RTOS - Event-Triggered Systems (ETS)
 [info]  soe-tp0_03-application: Demo Code
-[info]  
+[info]
 [info] Task LED is running - Tick [mS] =   0
-[info]  
+[info]
 [info] Task BTN 2 is running - Tick [mS] =   1
 [info]  Task BTN 2 - BTN PRESSED
 [info]  Task LED - LED BLINK
@@ -125,7 +119,6 @@ De app.c modificamos las prioridades
 [info]  Task BTN 2 - BTN HOVER
 [info]  Task LED - LED OFF
 
-
 ### Observaciones de la Implementación (Paso 04)
 
 Durante la prueba de instanciación múltiple de tareas, se verificaron los siguientes comportamientos del RTOS:
@@ -133,6 +126,3 @@ Durante la prueba de instanciación múltiple de tareas, se verificaron los sigu
 * **Gestión de Prioridades (Preempción):** Al ejecutar múltiples instancias de la tarea de botón (`task_btn`) con diferentes prioridades, el planificador otorgó el control absoluto de la CPU a la tarea con la prioridad más alta, desplazando a las demás.
 * **Igualdad de Prioridades:** Al asignar la misma jerarquía a todas las instancias de `task_btn`, se observó que la primera tarea en ser creada (instanciada en el código) fue la que retuvo el control inicial de la ejecución.
 * **Eliminación Dinámica de Tareas:** Se validó el correcto funcionamiento de la API de FreeRTOS para la destrucción de hilos. La tarea controladora del LED (`task_led`) logró recibir exitosamente el *Handle* y ejecutar `vTaskDelete()` para eliminar de forma definitiva la instancia número 3 del botón ("BTN 3").
-
-
-

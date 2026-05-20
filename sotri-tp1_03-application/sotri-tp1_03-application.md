@@ -1,9 +1,8 @@
-
 # TP1 – Actividad 03 – 6to Proyecto p/placa NUCLEO-F103RB con FreeRTOS
 
 ## 1. ¿Cómo usar el parámetro de Tarea (`pvParameters`)?
 
-Cuando creas una tarea con `xTaskCreate()`, el cuarto argumento es un puntero genérico de tipo `void *`. Esto te permite enviarle cualquier tipo de dato a la tarea al momento de su inicialización (un número, una cadena de texto o un puntero a una estructura compleja).
+Cuándo creas una tarea con `xTaskCreate()`, el cuarto argumento es un puntero genérico de tipo `void *`. Esto te permite envíarle cualquier tipo de dato a la tarea al momento de su inicialización (un número, una cadena de texto o un puntero a una estructura compleja).
 
 **Paso a paso:**
 1. Defines el dato o la estructura que quieres pasar (debe ser global o estática para que no se destruya de la memoria antes de que la tarea la lea).
@@ -43,9 +42,11 @@ void vMiTarea(void *pvParameters) {
         vTaskDelay(delay);
     }
 }
+
 ```
 
 ## 2. ¿Cómo cambiar la prioridad de una Tarea ya creada?
+
 Para modificar la prioridad de una tarea en tiempo de ejecución, FreeRTOS proporciona la API vTaskPrioritySet(). Esta función es muy útil cuando necesitas que una tarea adquiera mayor importancia dinámicamente frente a un evento crítico.
 
 Sintaxis:
@@ -56,6 +57,7 @@ xTask: Es el Handle (manejador) de la tarea a la que le quieres cambiar la prior
 uxNewPriority: El número de la nueva prioridad (recuerda que los números más altos indican mayor prioridad).
 
 Ejemplo de implementación:
+
 ```c
 TaskHandle_t h_tarea_sensor;
 
@@ -88,11 +90,12 @@ void vTareaSensor(void *pvParameters) {
 
 Nota importante: Si al usar vTaskPrioritySet() le asignas a una tarea una prioridad mayor que la de la tarea que se está ejecutando actualmente, se producirá un cambio de contexto inmediato (preempción) y la CPU saltará a ejecutar esa tarea sin esperar al siguiente Tick.
 
-## 3. 
+## 3. Dos instancias de `task_btn` para gestionar botones diferentes
 
-Se observa que la tarea instancienadose dos veces, puede manejar dos GPIO Input diferentes y enviar a la tarea del led los eventos configurados.
+Se observa que la tarea instancienadose dos veces, puede manejar dos GPIO Input diferentes y envíar a la tarea del led los eventos configurados.
 
 Se adjunta la salida de la consola:
+
 ```
 xPSR: 0x01000000 pc: 0x08000c94 msp: 0x20020000, semihosting
 [info]  
@@ -119,6 +122,7 @@ xPSR: 0x01000000 pc: 0x08000c94 msp: 0x20020000, semihosting
 [info]  Task LED - LED BLINK
 [info]  Task BTN 2 - BTN HOVER
 [info]  Task LED - LED OFF
+
 ```
 
 ## 4. Prioridad inicial de `task_led` y dos instancias
@@ -128,17 +132,19 @@ Para asegurar que las tareas de LED sean las primeras en ejecutar al arrancar el
 ```c
 #define TASK_PRIORITY_NORMAL   (tskIDLE_PRIORITY + 1ul)
 #define TASK_PRIORITY_STARTUP  (tskIDLE_PRIORITY + 2ul)
+
 ```
 
 Las dos instancias de `task_led` se crean con `TASK_PRIORITY_STARTUP`. Al entrar en la tarea, cada instancia inicializa su GPIO, apaga el LED correspondiente y luego recupera la prioridad relativa original con:
 
 ```c
 vTaskPrioritySet(NULL, led->normal_priority);
+
 ```
 
 De esta forma, al inicio ejecutan primero `Task LED LD2` y `Task LED LD3`. Luego ambas vuelven a prioridad normal, igual que las tareas de botones.
 
-Tambien se instanciaron dos tareas `task_led`, una para `LD2` y otra para `led3`, usando parametros persistentes:
+También se instanciaron dos tareas `task_led`, una para `LD2` y otra para `led3`, usando parámetros persistentes:
 
 ```c
 #define TASK_LED_LD2_ID  0u
@@ -146,11 +152,12 @@ Tambien se instanciaron dos tareas `task_led`, una para `LD2` y otra para `led3`
 
 task_led_parameters_t ld2 = {LD2_GPIO_Port, LD2_Pin, TASK_LED_LD2_ID, TASK_PRIORITY_NORMAL};
 task_led_parameters_t ld3 = {led3_GPIO_Port, led3_Pin, TASK_LED_LD3_ID, TASK_PRIORITY_NORMAL};
+
 ```
 
-Cada boton tiene asociado un `led_id`, por lo que `Task BTN 1` envia eventos al LED 0 y `Task BTN 2` envia eventos al LED 1. Para evitar que las dos instancias de `task_led` se pisen entre si, se reemplazo el evento global unico por una tabla de eventos indexada por `led_id`.
+Cada botón tiene asociado un `led_id`, por lo que `Task BTN 1` envía eventos al LED 0 y `Task BTN 2` envía eventos al LED 1. Para evitar que las dos instancias de `task_led` se pisen entre sí, se reemplazó el evento global único por una tabla de eventos indexada por `led_id`.
 
-Comportamiento observado/esperado en depuracion:
+Comportamiento observado/esperado en depuración:
 
 ```text
 [info] Task LED LD2 is running - Tick [mS] = 0
@@ -167,6 +174,7 @@ Comportamiento observado/esperado en depuracion:
 [info] Task LED LD3 - LED BLINK
 [info] Task BTN 2 - BTN HOVER
 [info] Task LED LD3 - LED OFF
+
 ```
 
-Conclusion: la prioridad temporal mayor fuerza que las tareas de LED ejecuten primero su inicializacion. Una vez restaurada la prioridad normal, las cuatro tareas quedan al mismo nivel relativo y los botones controlan LEDs distintos sin compartir el mismo estado interno.
+Conclusión: la prioridad temporal mayor fuerza que las tareas de LED ejecuten primero su inicialización. Una vez restaurada la prioridad normal, las cuatro tareas quedan al mismo nivel relativo y los botones controlan LEDs distintos sin compartir el mismo estado interno.
