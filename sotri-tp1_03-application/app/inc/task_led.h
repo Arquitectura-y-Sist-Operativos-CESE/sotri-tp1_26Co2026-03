@@ -41,6 +41,8 @@ extern "C" {
 #endif
 
 /********************** inclusions *******************************************/
+#include "main.h"
+#include "cmsis_os.h"
 
 /********************** macros ***********************************************/
 
@@ -49,6 +51,8 @@ typedef struct
 {
 	GPIO_TypeDef *	gpio_port;
 	uint16_t		pin;
+	uint32_t		led_id;
+	UBaseType_t		normal_priority;
 } task_led_parameters_t;
 
 /********************** external data declaration ****************************/

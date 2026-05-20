@@ -45,6 +45,7 @@
 #include "board.h"
 #include "app.h"
 #include "task_led_attribute.h"
+#include "task_led_interface.h"
 #include "task_led.h"
 
 /********************** macros and definitions *******************************/
@@ -52,11 +53,6 @@
 #define DEL_LED_MED			250ul
 #define DEL_LED_MAX			500ul
 
-/********************** internal data declaration ****************************/
-task_led_dta_t task_led_dta = {
-		false, EV_LED_OFF, ST_LED_OFF, DEL_LED_MIN,
-		LD2_GPIO_Port, LD2_Pin
-};
 /********************** internal functions declaration ***********************/
 static void task_led_statechart(task_led_dta_t *data);
 /********************** internal data definition *****************************/
@@ -71,20 +67,6 @@ void task_led(void *parameters)
 	LOGGER_INFO(" ");
 	LOGGER_INFO("%s is running - Tick [mS] = %3d", pcTaskGetName(NULL), (int)xTaskGetTickCount());
 
-	//HAL_GPIO_WritePin(task_led_dta.gpio_port, task_led_dta.pin, LED_OFF);
-
-	/* Hacemos un cast del void* al tipo de dato original */
-//	task_btn_parameters_t *button = (task_btn_parameters_t *)parameters;
-//	LOGGER_INFO("Me llamaron Puerto %p , Pin %u", (void *)button->gpio_port, button->pin);
-//
-//	task_btn_dta_t dta = {
-//			.event = EV_BTN_UP,
-//			.state = ST_BTN_UP,
-//			.tick = DEL_BTN_MIN,
-//			.gpio_port = button->gpio_port,
-//			.pin = button->pin,
-//		};
-
 	task_led_parameters_t *led = (task_led_parameters_t *)parameters;
 	LOGGER_INFO("LED: Me llamaron Puerto %p , Pin %u", (void *)led->gpio_port, led->pin);
 
@@ -96,9 +78,11 @@ void task_led(void *parameters)
 				.tick= DEL_LED_MIN,
 				.gpio_port= led->gpio_port,
 				.pin= led->pin,
+				.led_id= led->led_id,
 	};
 
 	HAL_GPIO_WritePin(dta.gpio_port, dta.pin, LED_OFF);
+	vTaskPrioritySet(NULL, led->normal_priority);
 
 	/* As per most tasks, this task is implemented in an infinite loop. */
 	for (;;)
@@ -108,21 +92,24 @@ void task_led(void *parameters)
 
 		/* Run Task Statechart */
     	task_led_statechart(&dta);
+    	vTaskDelay(10);
 	}
 }
 
-void task_led_statechart(task_led_dta_t *dta)
-{	//task_task_led_dtaled_dta
+static void task_led_statechart(task_led_dta_t *dta)
+{
+	task_led_ev_t event = EV_LED_OFF;
+	bool has_event = get_event_task_led(dta->led_id, &event);
+
 	switch (dta->state)
 	{
 		case ST_LED_OFF:
 
-			if ((true == task_led_dta.flag) && (EV_LED_BLINK == task_led_dta.event))
+			if ((true == has_event) && (EV_LED_BLINK == event))
 			{
 				/* Print out: Task execution */
 				LOGGER_INFO(" %s - LED BLINK", pcTaskGetName(NULL));
 
-				task_led_dta.flag = false;
 				dta->tick = xTaskGetTickCount();
 				dta->state = ST_LED_BLINK;
 				HAL_GPIO_WritePin(dta->gpio_port, dta->pin, LED_ON);
@@ -132,12 +119,11 @@ void task_led_statechart(task_led_dta_t *dta)
 
 		case ST_LED_BLINK:
 
-			if ((true == task_led_dta.flag) && (EV_LED_OFF == task_led_dta.event))
+			if ((true == has_event) && (EV_LED_OFF == event))
 			{
 				/* Print out: Task execution */
 				LOGGER_INFO(" %s - LED OFF", pcTaskGetName(NULL));
 
-				task_led_dta.flag = false;
 				dta->state = ST_LED_OFF;
 				HAL_GPIO_WritePin(dta->gpio_port, dta->pin, LED_OFF);
 			}
@@ -154,8 +140,6 @@ void task_led_statechart(task_led_dta_t *dta)
 
 		default:
 
-			task_led_dta.flag = false;
-			task_led_dta.event = EV_LED_OFF;
 			dta->state = ST_LED_OFF;
 			dta->tick  = xTaskGetTickCount();
 			HAL_GPIO_WritePin(dta->gpio_port, dta->pin, LED_OFF);

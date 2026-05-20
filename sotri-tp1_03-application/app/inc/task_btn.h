@@ -41,6 +41,7 @@ extern "C" {
 #endif
 
 /********************** inclusions *******************************************/
+#include "main.h"
 
 /********************** macros ***********************************************/
 
@@ -49,6 +50,7 @@ typedef struct
 {
 	GPIO_TypeDef *	gpio_port;
 	uint16_t		pin;
+	uint32_t		led_id;
 } task_btn_parameters_t;
 
 /********************** external data declaration ****************************/

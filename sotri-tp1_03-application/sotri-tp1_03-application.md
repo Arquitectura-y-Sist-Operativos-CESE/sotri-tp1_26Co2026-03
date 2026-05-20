@@ -121,4 +121,52 @@ xPSR: 0x01000000 pc: 0x08000c94 msp: 0x20020000, semihosting
 [info]  Task LED - LED OFF
 ```
 
-## 4. Modi
+## 4. Prioridad inicial de `task_led` y dos instancias
+
+Para asegurar que las tareas de LED sean las primeras en ejecutar al arrancar el scheduler, se crearon con una prioridad temporal mayor:
+
+```c
+#define TASK_PRIORITY_NORMAL   (tskIDLE_PRIORITY + 1ul)
+#define TASK_PRIORITY_STARTUP  (tskIDLE_PRIORITY + 2ul)
+```
+
+Las dos instancias de `task_led` se crean con `TASK_PRIORITY_STARTUP`. Al entrar en la tarea, cada instancia inicializa su GPIO, apaga el LED correspondiente y luego recupera la prioridad relativa original con:
+
+```c
+vTaskPrioritySet(NULL, led->normal_priority);
+```
+
+De esta forma, al inicio ejecutan primero `Task LED LD2` y `Task LED LD3`. Luego ambas vuelven a prioridad normal, igual que las tareas de botones.
+
+Tambien se instanciaron dos tareas `task_led`, una para `LD2` y otra para `led3`, usando parametros persistentes:
+
+```c
+#define TASK_LED_LD2_ID  0u
+#define TASK_LED_LD3_ID  1u
+
+task_led_parameters_t ld2 = {LD2_GPIO_Port, LD2_Pin, TASK_LED_LD2_ID, TASK_PRIORITY_NORMAL};
+task_led_parameters_t ld3 = {led3_GPIO_Port, led3_Pin, TASK_LED_LD3_ID, TASK_PRIORITY_NORMAL};
+```
+
+Cada boton tiene asociado un `led_id`, por lo que `Task BTN 1` envia eventos al LED 0 y `Task BTN 2` envia eventos al LED 1. Para evitar que las dos instancias de `task_led` se pisen entre si, se reemplazo el evento global unico por una tabla de eventos indexada por `led_id`.
+
+Comportamiento observado/esperado en depuracion:
+
+```text
+[info] Task LED LD2 is running - Tick [mS] = 0
+[info] LED: Me llamaron Puerto 0x40020000 , Pin 32
+[info] Task LED LD3 is running - Tick [mS] = 0
+[info] LED: Me llamaron Puerto 0x40020400 , Pin 256
+[info] Task BTN 1 is running - Tick [mS] = 1
+[info] Task BTN 2 is running - Tick [mS] = 1
+[info] Task BTN 1 - BTN PRESSED
+[info] Task LED LD2 - LED BLINK
+[info] Task BTN 1 - BTN HOVER
+[info] Task LED LD2 - LED OFF
+[info] Task BTN 2 - BTN PRESSED
+[info] Task LED LD3 - LED BLINK
+[info] Task BTN 2 - BTN HOVER
+[info] Task LED LD3 - LED OFF
+```
+
+Conclusion: la prioridad temporal mayor fuerza que las tareas de LED ejecuten primero su inicializacion. Una vez restaurada la prioridad normal, las cuatro tareas quedan al mismo nivel relativo y los botones controlan LEDs distintos sin compartir el mismo estado interno.

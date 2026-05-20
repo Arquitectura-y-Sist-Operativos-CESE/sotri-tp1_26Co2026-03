@@ -45,22 +45,57 @@
 #include "board.h"
 #include "app.h"
 #include "task_led_attribute.h"
+#include "task_led_interface.h"
 
 /********************** macros and definitions *******************************/
 
 /********************** internal data declaration ****************************/
+typedef struct
+{
+	bool flag;
+	task_led_ev_t event;
+} task_led_event_t;
 
 /********************** internal functions declaration ***********************/
 
 /********************** internal data definition *****************************/
+static task_led_event_t task_led_events[TASK_LED_COUNT];
 
 /********************** external data declaration ****************************/
 
 /********************** external functions definition ************************/
-void put_event_task_led(task_led_ev_t event)
+void put_event_task_led(uint32_t led_id, task_led_ev_t event)
 {
-	task_led_dta.event = event;
-	task_led_dta.flag = true;
+	if (TASK_LED_COUNT <= led_id)
+	{
+		return;
+	}
+
+	taskENTER_CRITICAL();
+	task_led_events[led_id].event = event;
+	task_led_events[led_id].flag = true;
+	taskEXIT_CRITICAL();
+}
+
+bool get_event_task_led(uint32_t led_id, task_led_ev_t *event)
+{
+	bool ret = false;
+
+	if ((TASK_LED_COUNT <= led_id) || (NULL == event))
+	{
+		return false;
+	}
+
+	taskENTER_CRITICAL();
+	if (true == task_led_events[led_id].flag)
+	{
+		*event = task_led_events[led_id].event;
+		task_led_events[led_id].flag = false;
+		ret = true;
+	}
+	taskEXIT_CRITICAL();
+
+	return ret;
 }
 
 /********************** end of file ******************************************/

@@ -53,6 +53,10 @@
 #define G_APP_TICK_CNT_INI				0ul
 #define G_TASK_IDLE_CNT_INI				0ul
 #define G_APP_STACK_OVERFLOW_CNT_INI	0ul
+#define TASK_PRIORITY_NORMAL			(tskIDLE_PRIORITY + 1ul)
+#define TASK_PRIORITY_STARTUP			(tskIDLE_PRIORITY + 2ul)
+#define TASK_LED_LD2_ID					0u
+#define TASK_LED_LD3_ID					1u
 
 /********************** internal data declaration ****************************/
 
@@ -73,15 +77,16 @@ uint32_t g_app_stack_overflow_cnt;
 
 /* Declare a variable of type TaskHandle_t. This is used to reference threads. */
 //TaskHandle_t h_task_btn;
-TaskHandle_t h_task_led;
 TaskHandle_t h_task_btn_1;
 TaskHandle_t h_task_btn_2;
+TaskHandle_t h_task_led_1;
+TaskHandle_t h_task_led_2;
 
-task_btn_parameters_t button1={B1_GPIO_Port, B1_Pin};
-task_btn_parameters_t button2={GPIOA, GPIO_PIN_8};
+task_btn_parameters_t button1={B1_GPIO_Port, B1_Pin, TASK_LED_LD2_ID};
+task_btn_parameters_t button2={GPIOA, GPIO_PIN_8, TASK_LED_LD3_ID};
 
-task_led_parameters_t ld2={LD2_GPIO_Port,LD2_Pin};
-task_led_parameters_t ld3={led3_GPIO_Port,led3_Pin};
+task_led_parameters_t ld2={LD2_GPIO_Port, LD2_Pin, TASK_LED_LD2_ID, TASK_PRIORITY_NORMAL};
+task_led_parameters_t ld3={led3_GPIO_Port, led3_Pin, TASK_LED_LD3_ID, TASK_PRIORITY_NORMAL};
 
 
 /********************** external functions definition ************************/
@@ -118,7 +123,7 @@ void app_init(void)
 					  "Task BTN 1",						/* Text name for the task. This is to facilitate debugging only. */
 					  (2 * configMINIMAL_STACK_SIZE),	/* Stack depth in words. */
 					  (void*)&button1,								/* We are not using the task parameter. */
-					  (tskIDLE_PRIORITY + 1ul),			/* This task will run at priority 1. */
+					  TASK_PRIORITY_NORMAL,				/* This task will run at priority 1. */
 					  &h_task_btn_1);						/* We are using a variable as task handle. */
 
     /* Check the thread was created successfully. */
@@ -129,7 +134,7 @@ void app_init(void)
 				  "Task BTN 2",						/* Text name for the task. This is to facilitate debugging only. */
 				  (2 * configMINIMAL_STACK_SIZE),	/* Stack depth in words. */
 				  (void*)&button2,						/* We are not using the task parameter. */
-					  (tskIDLE_PRIORITY + 1ul),			/* This task will run at priority 1. */
+					  TASK_PRIORITY_NORMAL,			/* This task will run at priority 1. */
 				  &h_task_btn_2);						/* We are using a variable as task handle. */
 
     /* Check the thread was created successfully. */
@@ -142,8 +147,8 @@ void app_init(void)
 					  "Task LED LD2",						/* Text name for the task. This is to facilitate debugging only. */
 					  (2 * configMINIMAL_STACK_SIZE),	/* Stack depth in words. */
 					  (void*)&ld2,								/* We are not using the task parameter. */
-					  (tskIDLE_PRIORITY + 1ul),			/* This task will run at priority 1. */
-					  &h_task_led);						/* We are using a variable as task handle. */
+					  TASK_PRIORITY_STARTUP,			/* This task starts first and restores its normal priority. */
+					  &h_task_led_1);						/* We are using a variable as task handle. */
 
     /* Check the thread was created successfully. */
     configASSERT(pdPASS == ret);
@@ -153,8 +158,8 @@ void app_init(void)
 					  "Task LED LD3",						/* Text name for the task. This is to facilitate debugging only. */
 					  (2 * configMINIMAL_STACK_SIZE),	/* Stack depth in words. */
 					  (void*)&ld3,								/* We are not using the task parameter. */
-					  (tskIDLE_PRIORITY + 1ul),			/* This task will run at priority 1. */
-					  &h_task_led);						/* We are using a variable as task handle. */
+					  TASK_PRIORITY_STARTUP,			/* This task starts first and restores its normal priority. */
+					  &h_task_led_2);						/* We are using a variable as task handle. */
 
 	/* Check the thread was created successfully. */
 	configASSERT(pdPASS == ret);

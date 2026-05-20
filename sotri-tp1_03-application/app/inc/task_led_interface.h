@@ -41,15 +41,18 @@ extern "C" {
 #endif
 
 /********************** inclusions *******************************************/
+#include "task_led_attribute.h"
 
 /********************** macros ***********************************************/
+#define TASK_LED_COUNT		2u
 
 /********************** typedef **********************************************/
 
 /********************** external data declaration ****************************/
 
 /********************** external functions declaration ***********************/
-extern void put_event_task_led(task_led_ev_t event);
+extern void put_event_task_led(uint32_t led_id, task_led_ev_t event);
+extern bool get_event_task_led(uint32_t led_id, task_led_ev_t *event);
 
 /********************** End of CPP guard *************************************/
 #ifdef __cplusplus

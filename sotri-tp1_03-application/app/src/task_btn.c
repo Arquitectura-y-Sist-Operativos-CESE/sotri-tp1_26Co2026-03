@@ -86,6 +86,7 @@ void task_btn(void *parameters)
 	        .tick = DEL_BTN_MIN,
 	        .gpio_port = button->gpio_port,
 	        .pin = button->pin,
+			.led_id = button->led_id,
 	    };
 
 
@@ -138,7 +139,7 @@ static void task_btn_statechart(task_btn_dta_t *data)
 					/* Print out: Task execution */
 					LOGGER_INFO(" %s - BTN PRESSED", pcTaskGetName(NULL));
 
-					put_event_task_led(EV_LED_BLINK);
+					put_event_task_led(data->led_id, EV_LED_BLINK);
 					data->state = ST_BTN_DOWN;
 				}
 				else
@@ -168,7 +169,7 @@ static void task_btn_statechart(task_btn_dta_t *data)
 					/* Print out: Task execution */
 					LOGGER_INFO(" %s - BTN HOVER", pcTaskGetName(NULL));
 
-					put_event_task_led(EV_LED_OFF);
+					put_event_task_led(data->led_id, EV_LED_OFF);
 					data->state = ST_BTN_UP;
 				}
 				else

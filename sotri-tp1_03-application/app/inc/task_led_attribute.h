@@ -65,10 +65,10 @@ typedef struct
 	TickType_t		tick;
 	GPIO_TypeDef *	gpio_port;
 	uint16_t		pin;
+	uint32_t		led_id;
 } task_led_dta_t;
 
 /********************** external data declaration ****************************/
-extern task_led_dta_t task_led_dta;
 
 /********************** external functions declaration ***********************/
 
