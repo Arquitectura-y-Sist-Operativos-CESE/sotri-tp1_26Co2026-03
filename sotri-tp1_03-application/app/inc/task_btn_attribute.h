@@ -67,7 +67,6 @@ typedef struct
 
 } task_btn_dta_t;
 /********************** external data declaration ****************************/
-extern task_btn_dta_t task_btn_dta;
 
 /********************** external functions declaration ***********************/
 
