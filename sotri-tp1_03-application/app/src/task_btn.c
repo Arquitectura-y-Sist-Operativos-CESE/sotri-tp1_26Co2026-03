@@ -70,7 +70,7 @@ task_btn_dta_t task_btn_dta;
 
 
 /********************** internal functions declaration ***********************/
-void task_btn_statechart(void);
+void task_btn_statechart(task_btn_dta_t*);
 
 /********************** internal data definition *****************************/
 
@@ -90,16 +90,26 @@ void task_btn(void *parameters)
 	task_btn_parameters_t *button = (task_btn_parameters_t *)parameters;
 	LOGGER_INFO("Me llamaron Puerto %d , Pin %d",button->gpio_port,button->pin);
 
-	task_btn_dta.event=EV_BTN_UP;
+	//task_btn_dta.event=EV_BTN_UP;
 
-	task_btn_dta.state=ST_BTN_UP;
+	//task_btn_dta.state=ST_BTN_UP;
 
-	task_btn_dta.tick=DEL_BTN_MIN;
+	//task_btn_dta.tick=DEL_BTN_MIN;
 
-	//task_btn_dta.buttonDinamic.gpio_port=button->gpio_port;
-	task_btn_dta.gpio_port=button->gpio_port;
-	task_btn_dta.pin=button->pin;
-	//task_btn_dta.buttonDinamic.pin=button->pin;
+	//task_btn_dta.gpio_port=button->gpio_port;
+
+	//task_btn_dta.pin=button->pin;
+
+
+
+	task_btn_dta_t dta = {
+	        .event = EV_BTN_UP,
+	        .state = ST_BTN_UP,
+	        .tick = DEL_BTN_MIN,
+	        .gpio_port = button->gpio_port,
+	        .pin = button->pin,
+	    };
+
 
 
 	/* As per most tasks, this task is implemented in an infinite loop. */
@@ -109,16 +119,18 @@ void task_btn(void *parameters)
 		//LOGGER_INFO(" %s - Tick [mS] = %3d", pcTaskGetName(NULL), (int)xTaskGetTickCount());
 
 		/* Run Task Statechart */
-    	task_btn_statechart();
+    	//task_btn_statechart();
+    	task_btn_statechart(&dta);
 
     	vTaskDelay(100);
 	}
 }
 
-void task_btn_statechart(void)
+void task_btn_statechart(task_btn_dta_t *data)
 {
+
 	/* Get Events to excite Task */
-	if (BTN_PRESSED == HAL_GPIO_ReadPin(task_btn_dta.gpio_port, task_btn_dta.pin))
+	if (BTN_PRESSED == HAL_GPIO_ReadPin(data->gpio_port, data->pin))
 	{
 		task_btn_dta.event = EV_BTN_DOWN;
 	}

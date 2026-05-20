@@ -77,6 +77,9 @@ TaskHandle_t h_task_led;
 TaskHandle_t h_task_btn_1;
 TaskHandle_t h_task_btn_2;
 
+task_btn_parameters_t button1={B1_GPIO_Port, B1_Pin};
+task_btn_parameters_t button2={GPIOA, GPIO_PIN_8};
+
 
 /********************** external functions definition ************************/
 void app_init(void)
@@ -102,8 +105,7 @@ void app_init(void)
 
 	/* Add threads, ... */
 
-	task_btn_parameters_t button1={B1_GPIO_Port, B1_Pin};
-	task_btn_parameters_t button2={GPIOA, GPIO_PIN_8};
+
 
 
     BaseType_t ret;
@@ -120,15 +122,15 @@ void app_init(void)
     configASSERT(pdPASS == ret);
 
     //Task BTN thread at priority 1
-   // ret = xTaskCreate(task_btn,							/* Pointer to the function thats implement the task. */
-	//				  "Task BTN 2",						/* Text name for the task. This is to facilitate debugging only. */
-	//				  (2 * configMINIMAL_STACK_SIZE),	/* Stack depth in words. */
-	//				  (void*)&button2,						/* We are not using the task parameter. */
-	//				  (tskIDLE_PRIORITY + 1ul),			/* This task will run at priority 1. */
-		//			  &h_task_btn_2);						/* We are using a variable as task handle. */
+   ret = xTaskCreate(task_btn,							/* Pointer to the function thats implement the task. */
+				  "Task BTN 2",						/* Text name for the task. This is to facilitate debugging only. */
+				  (2 * configMINIMAL_STACK_SIZE),	/* Stack depth in words. */
+				  (void*)&button2,						/* We are not using the task parameter. */
+					  (tskIDLE_PRIORITY + 1ul),			/* This task will run at priority 1. */
+				  &h_task_btn_2);						/* We are using a variable as task handle. */
 
     /* Check the thread was created successfully. */
-   // configASSERT(pdPASS == ret);
+    configASSERT(pdPASS == ret);
 
 
 
